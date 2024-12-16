@@ -12,7 +12,13 @@ from fmi_weather_client.errors import ClientError, ServerError
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_OFFSET
-from homeassistant.core import Config, HomeAssistant
+from homeassistant.core import HomeAssistant
+try:
+    # HA 2024.11 and newer
+    from homeassistant.core_config import Config
+except ImportError:
+    # HA 2024.10 and older
+    from homeassistant.core import Config
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
@@ -68,18 +74,17 @@ async def async_setup_entry(hass, config_entry) -> bool:
         UNDO_UPDATE_LISTENER: undo_listener,
     }
 
-    for component in PLATFORMS:
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(config_entry, component)
-        )
+    await hass.config_entries.async_forward_entry_setups(
+        config_entry,
+        PLATFORMS
+    )
 
     return True
 
 
 async def async_unload_entry(hass, config_entry):
     """Unload an FMI config entry."""
-    for component in PLATFORMS:
-        await hass.config_entries.async_forward_entry_unload(config_entry, component)
+    await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
 
     hass.data[DOMAIN][config_entry.entry_id][UNDO_UPDATE_LISTENER]()
     hass.data[DOMAIN].pop(config_entry.entry_id)
